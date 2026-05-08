@@ -1,0 +1,8 @@
+{
+  "dir": "/Users/markbulling/printing-press/.runstate/fpl-skills-6f06c976/runs/20260508-194751/working/fpl-pp-cli",
+  "workflows": null,
+  "verdict": "workflow-pass",
+  "issues": [
+    "no workflow manifest found, skipping"
+  ]
+}

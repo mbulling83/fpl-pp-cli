@@ -1,0 +1,51 @@
+version: 2
+project_name: fpl-pp-cli
+changelog:
+  disable: true
+builds:
+  - id: fpl-pp-cli
+    main: ./cmd/fpl-pp-cli
+    binary: fpl-pp-cli
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X fpl-pp-cli/internal/cli.version={{ .Version }}
+    targets:
+      - darwin_amd64
+      - darwin_arm64
+      - linux_amd64
+      - linux_arm64
+      - windows_amd64
+      - windows_arm64
+  - id: fpl-pp-mcp
+    main: ./cmd/fpl-pp-mcp
+    binary: fpl-pp-mcp
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+    targets:
+      - darwin_amd64
+      - darwin_arm64
+      - linux_amd64
+      - linux_arm64
+      - windows_amd64
+      - windows_arm64
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+checksum:
+  name_template: checksums.txt
+brews:
+  - name: fpl-pp-cli
+    repository:
+      owner: mbulling83
+      name: homebrew-tap
+    homepage: "https://github.com/mbulling83/fpl-pp-cli"
+    description: "Every FPL feature, plus offline queries, cross-gameweek analysis, and a local database no other FPL tool has."
+    install: |
+      bin.install "fpl-pp-cli"
+      bin.install "fpl-pp-mcp"
