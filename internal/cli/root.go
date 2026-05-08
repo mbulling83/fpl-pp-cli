@@ -203,6 +203,16 @@ Run 'fpl-pp-cli doctor' to verify auth and connectivity.`,
 	rootCmd.AddCommand(newValueTrajectoryCmd(flags))
 	rootCmd.AddCommand(newReplayCmd(flags))
 	rootCmd.AddCommand(newVersionCliCmd())
+	// Mini-league commands
+	leagueCmd := &cobra.Command{
+		Use:   "league",
+		Short: "Mini-league management (sync, standings, rivals, season plan)",
+	}
+	leagueCmd.AddCommand(newLeagueSyncCmd(flags))
+	rootCmd.AddCommand(leagueCmd)
+	rootCmd.AddCommand(newLeagueStandingsCmd(flags))
+	rootCmd.AddCommand(newLeagueRivalsCmd(flags))
+	rootCmd.AddCommand(newLeagueSeasonPlanCmd(flags))
 
 	return rootCmd
 }
