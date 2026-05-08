@@ -45,7 +45,7 @@ after each transfer was made. Requires synced history, transfers, and bootstrap-
 			defer db.Close()
 
 			// Load bootstrap-static for player name lookup and per-GW points
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found. Run 'fpl-pp-cli sync' first: %w", err)
 			}
@@ -65,43 +65,49 @@ after each transfer was made. Requires synced history, transfers, and bootstrap-
 			}
 
 			// Load transfers
-			txRaw, err := db.Get("transfers", entryID)
-			if err != nil {
-				return fmt.Errorf("transfers not found for entry %s. Run 'fpl-pp-cli sync' first: %w", entryID, err)
+			var txRaw sqliteJSON
+			if err = db.DB().QueryRowContext(cmd.Context(), `SELECT data FROM transfers WHERE id=?`, entryID).Scan(&txRaw); err != nil {
+				return fmt.Errorf("transfers not found for entry %s. Run 'fpl-pp-cli entry sync %s' first: %w", entryID, entryID, err)
 			}
 			var transfers []map[string]any
-			if err := json.Unmarshal(txRaw, &transfers); err != nil {
+			if err := json.Unmarshal(txRaw.v, &transfers); err != nil {
 				return fmt.Errorf("parsing transfers: %w", err)
 			}
 
-			// Build per-GW points from element-summary history stored in resources
+			// Build per-GW points from live table (gw -> element_id -> points)
 			gwPoints := make(map[int]map[int]float64) // element_id -> gw -> total_points
-			rows, err := db.DB().QueryContext(cmd.Context(),
-				`SELECT id, data FROM resources WHERE resource_type='element_summary'`)
+			liveRows, err := db.DB().QueryContext(cmd.Context(),
+				`SELECT event_id, data FROM live`)
 			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var rid string
-					var raw json.RawMessage
-					if err := rows.Scan(&rid, &raw); err != nil {
+				defer liveRows.Close()
+				for liveRows.Next() {
+					var gwStr string
+					var raw sqliteJSON
+					if err := liveRows.Scan(&gwStr, &raw); err != nil {
 						continue
 					}
-					var summary map[string]json.RawMessage
-					if err := json.Unmarshal(raw, &summary); err != nil {
+					gw := 0
+					fmt.Sscanf(gwStr, "%d", &gw)
+					if gw == 0 {
 						continue
 					}
-					var history []map[string]any
-					if err := json.Unmarshal(summary["history"], &history); err != nil {
+					var liveData map[string]json.RawMessage
+					if err := json.Unmarshal(raw.v, &liveData); err != nil {
 						continue
 					}
-					for _, h := range history {
-						eid, _ := h["element"].(float64)
-						gw, _ := h["round"].(float64)
-						pts, _ := h["total_points"].(float64)
-						if _, ok := gwPoints[int(eid)]; !ok {
-							gwPoints[int(eid)] = make(map[int]float64)
+					var elemsRaw []map[string]any
+					if err := json.Unmarshal(liveData["elements"], &elemsRaw); err != nil {
+						continue
+					}
+					for _, el := range elemsRaw {
+						eid, _ := el["id"].(float64)
+						if stats, ok := el["stats"].(map[string]any); ok {
+							pts, _ := stats["total_points"].(float64)
+							if _, ok := gwPoints[int(eid)]; !ok {
+								gwPoints[int(eid)] = make(map[int]float64)
+							}
+							gwPoints[int(eid)][gw] = pts
 						}
-						gwPoints[int(eid)][int(gw)] = pts
 					}
 				}
 			}

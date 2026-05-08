@@ -21,6 +21,25 @@ import (
 
 var As = errors.As
 
+// sqliteJSON is a scan target for SQLite TEXT columns that contain JSON.
+// The modernc SQLite driver returns TEXT as Go string, not []byte, so we
+// collect as string and expose as json.RawMessage for callers.
+type sqliteJSON struct{ v json.RawMessage }
+
+func (s *sqliteJSON) Scan(src any) error {
+	switch v := src.(type) {
+	case string:
+		s.v = json.RawMessage(v)
+	case []byte:
+		s.v = json.RawMessage(v)
+	case nil:
+		s.v = nil
+	default:
+		return fmt.Errorf("unsupported type for sqliteJSON: %T", src)
+	}
+	return nil
+}
+
 // noColor is set by the --no-color flag
 var noColor bool
 

@@ -51,7 +51,7 @@ Filter by price and ownership threshold to find the differentials that hurt most
 			defer db.Close()
 
 			// Bootstrap for player info
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found. Run 'fpl-pp-cli sync' first: %w", err)
 			}
@@ -104,15 +104,15 @@ Filter by price and ownership threshold to find the differentials that hurt most
 			}
 			for gw := startGW; gw <= currentGW; gw++ {
 				gwStr := fmt.Sprintf("%d", gw)
-				var raw json.RawMessage
+				var raw sqliteJSON
 				err := db.DB().QueryRowContext(cmd.Context(),
-					`SELECT data FROM entry_event WHERE entry_id=? AND event_id=?`,
-					entryID, gwStr).Scan(&raw)
+					`SELECT data FROM entry_event WHERE id=?`,
+					entryID+":"+gwStr).Scan(&raw)
 				if err != nil {
 					continue
 				}
 				var ev map[string]json.RawMessage
-				if err := json.Unmarshal(raw, &ev); err != nil {
+				if err := json.Unmarshal(raw.v, &ev); err != nil {
 					continue
 				}
 				var picks []map[string]any
@@ -134,7 +134,7 @@ Filter by price and ownership threshold to find the differentials that hurt most
 				defer liveRows.Close()
 				for liveRows.Next() {
 					var gwStr string
-					var raw json.RawMessage
+					var raw sqliteJSON
 					if err := liveRows.Scan(&gwStr, &raw); err != nil {
 						continue
 					}
@@ -144,7 +144,7 @@ Filter by price and ownership threshold to find the differentials that hurt most
 						continue
 					}
 					var liveData map[string]json.RawMessage
-					if err := json.Unmarshal(raw, &liveData); err != nil {
+					if err := json.Unmarshal(raw.v, &liveData); err != nil {
 						continue
 					}
 					var elemsRaw []map[string]any

@@ -43,12 +43,12 @@ Chips: wildcard (WC), triple captain (3xc), bench boost (bboost), free hit (free
 			defer db.Close()
 
 			// Load entry history for GW points + chips
-			histRaw, err := db.Get("history", entryID)
-			if err != nil {
-				return fmt.Errorf("history not found for entry %s. Run 'fpl-pp-cli sync' first: %w", entryID, err)
+			var histRaw sqliteJSON
+			if err = db.DB().QueryRowContext(cmd.Context(), `SELECT data FROM history WHERE id=?`, entryID).Scan(&histRaw); err != nil {
+				return fmt.Errorf("history not found for entry %s. Run 'fpl-pp-cli entry sync %s' first: %w", entryID, entryID, err)
 			}
 			var hist map[string]json.RawMessage
-			if err := json.Unmarshal(histRaw, &hist); err != nil {
+			if err := json.Unmarshal(histRaw.v, &hist); err != nil {
 				return fmt.Errorf("parsing history: %w", err)
 			}
 			var current []map[string]any
@@ -69,7 +69,7 @@ Chips: wildcard (WC), triple captain (3xc), bench boost (bboost), free hit (free
 			}
 
 			// Load bootstrap for GW averages
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found: %w", err)
 			}

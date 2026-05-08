@@ -55,7 +55,7 @@ Helps identify when to captain, transfer, or play chips.`,
 			defer db.Close()
 
 			// Bootstrap
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found. Run 'fpl-pp-cli sync' first: %w", err)
 			}
@@ -112,54 +112,51 @@ Helps identify when to captain, transfer, or play chips.`,
 			}
 			fixturesByTeam := make(map[int][]fixtureInfo) // team_id -> fixtures
 
-			fixtureRows, err := db.DB().QueryContext(cmd.Context(), `SELECT data FROM fixtures`)
+			// fixtures table has one row per fixture (not an array)
+			fixtureRows, err := db.DB().QueryContext(cmd.Context(),
+				`SELECT data FROM fixtures WHERE event >= ? AND event <= ?`, nextGW, endGW)
 			if err != nil {
 				return fmt.Errorf("querying fixtures: %w", err)
 			}
 			defer fixtureRows.Close()
 			for fixtureRows.Next() {
-				var raw json.RawMessage
+				var raw sqliteJSON
 				if err := fixtureRows.Scan(&raw); err != nil {
 					continue
 				}
-				var fixturesArr []map[string]any
-				if err := json.Unmarshal(raw, &fixturesArr); err != nil {
+				var f map[string]any
+				if err := json.Unmarshal(raw.v, &f); err != nil {
 					continue
 				}
-				for _, f := range fixturesArr {
-					gw, _ := f["event"].(float64)
-					if int(gw) < nextGW || int(gw) > endGW {
-						continue
-					}
-					homeID, _ := f["team_h"].(float64)
-					awayID, _ := f["team_a"].(float64)
-					homeDiff, _ := f["team_h_difficulty"].(float64)
-					awayDiff, _ := f["team_a_difficulty"].(float64)
-					fi := fixtureInfo{
-						GW:         int(gw),
-						HomeTeamID: int(homeID),
-						AwayTeamID: int(awayID),
-						HomeDiff:   int(homeDiff),
-						AwayDiff:   int(awayDiff),
-					}
-					fixturesByTeam[int(homeID)] = append(fixturesByTeam[int(homeID)], fi)
-					fixturesByTeam[int(awayID)] = append(fixturesByTeam[int(awayID)], fi)
+				gw, _ := f["event"].(float64)
+				homeID, _ := f["team_h"].(float64)
+				awayID, _ := f["team_a"].(float64)
+				homeDiff, _ := f["team_h_difficulty"].(float64)
+				awayDiff, _ := f["team_a_difficulty"].(float64)
+				fi := fixtureInfo{
+					GW:         int(gw),
+					HomeTeamID: int(homeID),
+					AwayTeamID: int(awayID),
+					HomeDiff:   int(homeDiff),
+					AwayDiff:   int(awayDiff),
 				}
+				fixturesByTeam[int(homeID)] = append(fixturesByTeam[int(homeID)], fi)
+				fixturesByTeam[int(awayID)] = append(fixturesByTeam[int(awayID)], fi)
 			}
 
 			// Load current squad (most recent GW)
 			var squadPicks []map[string]any
 			for gw := currentGW; gw >= 1; gw-- {
 				gwStr := fmt.Sprintf("%d", gw)
-				var raw json.RawMessage
+				var raw sqliteJSON
 				err := db.DB().QueryRowContext(cmd.Context(),
-					`SELECT data FROM entry_event WHERE entry_id=? AND event_id=?`,
-					entryID, gwStr).Scan(&raw)
+					`SELECT data FROM entry_event WHERE id=?`,
+					entryID+":"+gwStr).Scan(&raw)
 				if err != nil {
 					continue
 				}
 				var ev map[string]json.RawMessage
-				if err := json.Unmarshal(raw, &ev); err != nil {
+				if err := json.Unmarshal(raw.v, &ev); err != nil {
 					continue
 				}
 				if err := json.Unmarshal(ev["picks"], &squadPicks); err != nil {

@@ -49,7 +49,7 @@ over a recent gameweek window. Higher deadweight score = bigger underperformer.`
 			defer db.Close()
 
 			// Bootstrap for player names + xG
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found. Run 'fpl-pp-cli sync' first: %w", err)
 			}
@@ -102,15 +102,15 @@ over a recent gameweek window. Higher deadweight score = bigger underperformer.`
 			squadIDs := make(map[int]int) // element_id -> count of GWs owned
 			for gw := startGW; gw <= currentGW; gw++ {
 				gwStr := fmt.Sprintf("%d", gw)
-				var raw json.RawMessage
+				var raw sqliteJSON
 				err := db.DB().QueryRowContext(cmd.Context(),
-					`SELECT data FROM entry_event WHERE entry_id=? AND event_id=?`,
-					entryID, gwStr).Scan(&raw)
+					`SELECT data FROM entry_event WHERE id=?`,
+					entryID+":"+gwStr).Scan(&raw)
 				if err != nil {
 					continue
 				}
 				var ev map[string]json.RawMessage
-				if err := json.Unmarshal(raw, &ev); err != nil {
+				if err := json.Unmarshal(raw.v, &ev); err != nil {
 					continue
 				}
 				var picks []map[string]any
@@ -137,12 +137,12 @@ over a recent gameweek window. Higher deadweight score = bigger underperformer.`
 				defer esRows.Close()
 				for esRows.Next() {
 					var rid string
-					var raw json.RawMessage
+					var raw sqliteJSON
 					if err := esRows.Scan(&rid, &raw); err != nil {
 						continue
 					}
 					var summary map[string]json.RawMessage
-					if err := json.Unmarshal(raw, &summary); err != nil {
+					if err := json.Unmarshal(raw.v, &summary); err != nil {
 						continue
 					}
 					var history []map[string]any

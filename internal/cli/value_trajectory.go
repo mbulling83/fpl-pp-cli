@@ -44,12 +44,12 @@ Transfers and chips are annotated as inflection points on the value chart.`,
 			}
 			defer db.Close()
 
-			histRaw, err := db.Get("history", entryID)
-			if err != nil {
-				return fmt.Errorf("history not found for entry %s. Run 'fpl-pp-cli sync' first: %w", entryID, err)
+			var histRaw sqliteJSON
+			if err = db.DB().QueryRowContext(cmd.Context(), `SELECT data FROM history WHERE id=?`, entryID).Scan(&histRaw); err != nil {
+				return fmt.Errorf("history not found for entry %s. Run 'fpl-pp-cli entry sync %s' first: %w", entryID, entryID, err)
 			}
 			var hist map[string]json.RawMessage
-			if err := json.Unmarshal(histRaw, &hist); err != nil {
+			if err := json.Unmarshal(histRaw.v, &hist); err != nil {
 				return fmt.Errorf("parsing history: %w", err)
 			}
 			var current []map[string]any

@@ -66,7 +66,7 @@ last N gameweeks. Requires synced classic league standings and entry history.`,
 			}
 
 			// Find current GW for window calc
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found: %w", err)
 			}
@@ -102,13 +102,15 @@ last N gameweeks. Requires synced classic league standings and entry history.`,
 				rank := int(s["rank"].(float64))
 				totalPts := int(s["total"].(float64))
 
-				// Load entry history
-				histRaw, err := db.Get("history", entryID)
-				if err != nil {
+				// Load entry history from domain table
+				var histRaw sqliteJSON
+				if err := db.DB().QueryRowContext(cmd.Context(),
+					`SELECT data FROM history WHERE id=?`, entryID,
+				).Scan(&histRaw); err != nil {
 					continue
 				}
 				var hist map[string]json.RawMessage
-				if err := json.Unmarshal(histRaw, &hist); err != nil {
+				if err := json.Unmarshal(histRaw.v, &hist); err != nil {
 					continue
 				}
 				var current []map[string]any

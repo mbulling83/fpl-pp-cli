@@ -43,7 +43,7 @@ starter. Simulates basic auto-sub rules (no injury/red-card awareness).`,
 			defer db.Close()
 
 			// Player names from bootstrap
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found. Run 'fpl-pp-cli sync' first: %w", err)
 			}
@@ -74,12 +74,12 @@ starter. Simulates basic auto-sub rules (no injury/red-card awareness).`,
 			gwLive := make(map[int]map[int]float64)
 			for liveRows.Next() {
 				var gwStr string
-				var raw json.RawMessage
+				var raw sqliteJSON
 				if err := liveRows.Scan(&gwStr, &raw); err != nil {
 					continue
 				}
 				var liveData map[string]json.RawMessage
-				if err := json.Unmarshal(raw, &liveData); err != nil {
+				if err := json.Unmarshal(raw.v, &liveData); err != nil {
 					continue
 				}
 				var elemsRaw []map[string]any
@@ -103,9 +103,9 @@ starter. Simulates basic auto-sub rules (no injury/red-card awareness).`,
 				}
 			}
 
-			// Load picks
+			// Load picks (id format: "<entryID>:<gw>")
 			picksRows, err := db.DB().QueryContext(cmd.Context(),
-				`SELECT event_id, data FROM entry_event WHERE entry_id=? ORDER BY CAST(event_id AS INTEGER)`,
+				`SELECT id, data FROM entry_event WHERE entry_id=? ORDER BY id`,
 				entryID)
 			if err != nil {
 				return fmt.Errorf("querying picks: %w", err)
@@ -114,18 +114,22 @@ starter. Simulates basic auto-sub rules (no injury/red-card awareness).`,
 
 			var result []benchRegretRow
 			for picksRows.Next() {
-				var gwStr string
-				var raw json.RawMessage
-				if err := picksRows.Scan(&gwStr, &raw); err != nil {
+				var rowID string
+				var raw sqliteJSON
+				if err := picksRows.Scan(&rowID, &raw); err != nil {
 					continue
 				}
 				var ev map[string]json.RawMessage
-				if err := json.Unmarshal(raw, &ev); err != nil {
+				if err := json.Unmarshal(raw.v, &ev); err != nil {
 					continue
 				}
 				var picks []map[string]any
 				if err := json.Unmarshal(ev["picks"], &picks); err != nil {
 					continue
+				}
+				gwStr := rowID
+				if idx := len(entryID) + 1; idx < len(rowID) {
+					gwStr = rowID[idx:]
 				}
 				gw := 0
 				fmt.Sscanf(gwStr, "%d", &gw)

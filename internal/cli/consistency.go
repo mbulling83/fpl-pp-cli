@@ -53,7 +53,7 @@ Use --entry to limit to your squad, or --player for a single player.`,
 			defer db.Close()
 
 			// Load bootstrap
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found. Run 'fpl-pp-cli sync' first: %w", err)
 			}
@@ -86,12 +86,12 @@ Use --entry to limit to your squad, or --player for a single player.`,
 				if err == nil {
 					defer picksRows.Close()
 					for picksRows.Next() {
-						var raw json.RawMessage
+						var raw sqliteJSON
 						if err := picksRows.Scan(&raw); err != nil {
 							continue
 						}
 						var ev map[string]json.RawMessage
-						if err := json.Unmarshal(raw, &ev); err != nil {
+						if err := json.Unmarshal(raw.v, &ev); err != nil {
 							continue
 						}
 						var picks []map[string]any
@@ -119,12 +119,12 @@ Use --entry to limit to your squad, or --player for a single player.`,
 				defer esRows.Close()
 				for esRows.Next() {
 					var rid string
-					var raw json.RawMessage
+					var raw sqliteJSON
 					if err := esRows.Scan(&rid, &raw); err != nil {
 						continue
 					}
 					var summary map[string]json.RawMessage
-					if err := json.Unmarshal(raw, &summary); err != nil {
+					if err := json.Unmarshal(raw.v, &summary); err != nil {
 						continue
 					}
 					var history []map[string]any
@@ -147,12 +147,12 @@ Use --entry to limit to your squad, or --player for a single player.`,
 				livePts := make(map[int]map[int]float64) // element -> gw -> pts
 				for liveRows.Next() {
 					var gwStr string
-					var raw json.RawMessage
+					var raw sqliteJSON
 					if err := liveRows.Scan(&gwStr, &raw); err != nil {
 						continue
 					}
 					var liveData map[string]json.RawMessage
-					if err := json.Unmarshal(raw, &liveData); err != nil {
+					if err := json.Unmarshal(raw.v, &liveData); err != nil {
 						continue
 					}
 					var elemsRaw []map[string]any

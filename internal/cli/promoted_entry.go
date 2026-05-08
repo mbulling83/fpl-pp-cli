@@ -110,6 +110,7 @@ func newEntryPromotedCmd(flags *rootFlags) *cobra.Command {
 		sub.Hidden = false // unhide: the raw parent is hidden but these are useful under the promoted command
 		cmd.AddCommand(sub)
 	}
+	cmd.AddCommand(newEntrySyncCmd(flags))
 
 	return cmd
 }

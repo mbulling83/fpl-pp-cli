@@ -50,7 +50,7 @@ players at risk of price drops and risers you may want to target.`,
 			defer db.Close()
 
 			// Bootstrap
-			bsRaw, err := db.Get("bootstrap_static", "bootstrap_static")
+			bsRaw, err := db.Get("bootstrap-static", "bootstrap-static")
 			if err != nil {
 				return fmt.Errorf("bootstrap_static not found. Run 'fpl-pp-cli sync' first: %w", err)
 			}
@@ -78,7 +78,7 @@ players at risk of price drops and risers you may want to target.`,
 
 			// Current squad
 			squadIDs := make(map[int]bool)
-			var raw json.RawMessage
+			var raw sqliteJSON
 			// Get most recent picks
 			picksRows, err := db.DB().QueryContext(cmd.Context(),
 				`SELECT data FROM entry_event WHERE entry_id=? ORDER BY CAST(event_id AS INTEGER) DESC LIMIT 1`,
@@ -88,7 +88,7 @@ players at risk of price drops and risers you may want to target.`,
 				if picksRows.Next() {
 					if err := picksRows.Scan(&raw); err == nil {
 						var ev map[string]json.RawMessage
-						if err := json.Unmarshal(raw, &ev); err == nil {
+						if err := json.Unmarshal(raw.v, &ev); err == nil {
 							var picks []map[string]any
 							if err := json.Unmarshal(ev["picks"], &picks); err == nil {
 								for _, p := range picks {
