@@ -1,5 +1,5 @@
-fpl-pp-cli
-fpl-pp-mcp
+/fpl-pp-cli
+/fpl-pp-mcp
 *.db
 *.db-shm
 *.db-wal
