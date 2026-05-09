@@ -56,10 +56,14 @@ starter. Simulates basic auto-sub rules (no injury/red-card awareness).`,
 				return fmt.Errorf("parsing elements: %w", err)
 			}
 			playerByID := make(map[int]string, len(elements))
+			elementTypeByID := make(map[int]int, len(elements))
 			for _, e := range elements {
 				if id, ok := e["id"].(float64); ok {
 					if name, ok := e["web_name"].(string); ok {
 						playerByID[int(id)] = name
+					}
+					if et, ok := e["element_type"].(float64); ok {
+						elementTypeByID[int(id)] = int(et)
 					}
 				}
 			}
@@ -141,44 +145,71 @@ starter. Simulates basic auto-sub rules (no injury/red-card awareness).`,
 					continue
 				}
 
-				var starterPts []float64
-				var benchPts []struct {
-					ID  int
-					Pos int
-					Pts float64
-				}
+				// Separate starters and bench by position type.
+				// Bench GK (pos 12) only competes with the starting GK.
+				// Outfield bench (pos 13-15) are paired in priority order against
+				// the worst outfield starters in points order — this prevents each
+				// bench player from being compared against the same floor.
+				var starterGKPts float64
+				var outfieldStarterPts []float64
+				var benchGKID int
+				var benchGKPts float64
+				var benchGKPos int
+				type benchSlot struct{ ID, Pos int; Pts float64 }
+				var benchOutfield []benchSlot
+
 				for _, pick := range picks {
 					eid := int(pick["element"].(float64))
 					pos := int(pick["position"].(float64))
 					pts := live[eid]
+					isGK := elementTypeByID[eid] == 1
 					if pos <= 11 {
-						starterPts = append(starterPts, pts)
+						if isGK {
+							starterGKPts = pts
+						} else {
+							outfieldStarterPts = append(outfieldStarterPts, pts)
+						}
 					} else {
-						benchPts = append(benchPts, struct {
-							ID  int
-							Pos int
-							Pts float64
-						}{eid, pos, pts})
+						if isGK || pos == 12 {
+							benchGKID, benchGKPts, benchGKPos = eid, pts, pos
+						} else {
+							benchOutfield = append(benchOutfield, benchSlot{eid, pos, pts})
+						}
 					}
 				}
-				sort.Float64s(starterPts)
-				minStarter := 0.0
-				if len(starterPts) > 0 {
-					minStarter = starterPts[0]
+
+				// Bench GK vs starting GK
+				if benchGKID != 0 && benchGKPts > starterGKPts {
+					name := playerByID[benchGKID]
+					if name == "" {
+						name = fmt.Sprintf("id_%d", benchGKID)
+					}
+					result = append(result, benchRegretRow{
+						GW: gw, BenchPlayer: name, Position: benchGKPos,
+						BenchPoints: benchGKPts, StartersMin: starterGKPts,
+						Regret: benchGKPts - starterGKPts,
+					})
 				}
-				for _, b := range benchPts {
-					if b.Pts > minStarter {
+
+				// Outfield bench: pair in bench-priority order vs worst starters in order
+				sort.Float64s(outfieldStarterPts) // ascending: worst first
+				sort.Slice(benchOutfield, func(i, j int) bool {
+					return benchOutfield[i].Pos < benchOutfield[j].Pos
+				})
+				for i, b := range benchOutfield {
+					if i >= len(outfieldStarterPts) {
+						break
+					}
+					pairedPts := outfieldStarterPts[i]
+					if b.Pts > pairedPts {
 						name := playerByID[b.ID]
 						if name == "" {
 							name = fmt.Sprintf("id_%d", b.ID)
 						}
 						result = append(result, benchRegretRow{
-							GW:          gw,
-							BenchPlayer: name,
-							Position:    b.Pos,
-							BenchPoints: b.Pts,
-							StartersMin: minStarter,
-							Regret:      b.Pts - minStarter,
+							GW: gw, BenchPlayer: name, Position: b.Pos,
+							BenchPoints: b.Pts, StartersMin: pairedPts,
+							Regret: b.Pts - pairedPts,
 						})
 					}
 				}

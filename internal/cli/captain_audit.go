@@ -158,7 +158,8 @@ points gap across the season.`,
 					continue
 				}
 				var captainID int
-				var captainPts float64
+				var captainBasePts float64
+				var captainMultiplier float64 = 2 // 2 normally, 3 for TC chip
 				var bestID int
 				var bestPts float64
 				for _, pick := range gp.Picks {
@@ -171,17 +172,25 @@ points gap across the season.`,
 					pts := live[eid]
 					if isCap {
 						captainID = eid
-						captainPts = pts * 2 // captain multiplier
+						captainBasePts = pts
+						if m, ok := pick["multiplier"].(float64); ok && m >= 2 {
+							captainMultiplier = m
+						}
 					}
 					if pts > bestPts {
 						bestPts = pts
 						bestID = eid
 					}
 				}
-				optPts := bestPts * 2
-				gain := optPts - captainPts
-				runActual += captainPts
-				runOptimal += optPts
+				// Gain is the extra captain bonus from a better choice.
+				// Both players are already in the starting 11, so switching captain
+				// only changes the bonus (one extra copy of that player's points).
+				// bonus_extra = (bestPts - captainBasePts) * (multiplier - 1)
+				captainBonus := captainBasePts * (captainMultiplier - 1)
+				optBonus := bestPts * (captainMultiplier - 1)
+				gain := optBonus - captainBonus
+				runActual += captainBonus
+				runOptimal += optBonus
 
 				capName := playerByID[captainID]
 				if capName == "" {
@@ -194,9 +203,9 @@ points gap across the season.`,
 				result = append(result, captainAuditRow{
 					GW:             gp.GW,
 					Captain:        capName,
-					CaptainPoints:  captainPts,
+					CaptainPoints:  captainBasePts,
 					OptimalCaptain: optName,
-					OptimalPoints:  optPts,
+					OptimalPoints:  bestPts,
 					Gain:           gain,
 					RunningActual:  runActual,
 					RunningOptimal: runOptimal,
